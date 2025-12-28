@@ -54,6 +54,7 @@ jobs:
 
             sudo docker run -d --name discovery-server \
               --restart unless-stopped \
+              -p 8761:8761 \
               -e EUREKA_HOSTNAME="${EUREKA_HOSTNAME}" \
               discovery-server
           EOF
