@@ -1,0 +1,59 @@
+name: discovery-server
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set env
+        run: |
+          echo "HOST=${{ secrets.AWS_VM_HOST }}" >> $GITHUB_ENV
+          echo "EUREKA_HOSTNAME=${{ secrets.EUREKA_HOSTNAME }}" >> $GITHUB_ENV
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AWS_VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy to AWS VM
+        run: |
+          ssh ${{ secrets.AWS_VM_USER }}@"$HOST" << 'EOF'
+            set -e
+
+            cd ~
+
+            if [ ! -d "sprintforge-discovery-server" ]; then
+              git clone https://github.com/MarianoFrancisco/sprintforge-discovery-server.git
+            fi
+
+            cd sprintforge-discovery-server
+
+            git fetch --all
+            git checkout ${GITHUB_REF_NAME}
+            git pull
+
+            sudo docker container prune -f || true
+            sudo docker image prune -af || true
+            sudo docker builder prune -af || true
+            sudo docker volume prune -f || true
+
+            sudo docker build -t discovery-server .
+
+            sudo docker stop discovery-server || true
+            sudo docker rm discovery-server || true
+
+            sudo docker run -d --name discovery-server \
+              --restart unless-stopped \
+              -e EUREKA_HOSTNAME="${EUREKA_HOSTNAME}" \
+              discovery-server
+          EOF
