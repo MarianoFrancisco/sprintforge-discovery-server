@@ -27,7 +27,7 @@ jobs:
 
       - name: Deploy to AWS VM
         run: |
-          ssh ${{ secrets.AWS_VM_USER }}@"$HOST" << 'EOF'
+          ssh ${{ secrets.AWS_VM_USER }}@"$HOST" << EOF
             set -e
 
             cd ~
